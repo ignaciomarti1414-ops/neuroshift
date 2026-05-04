@@ -1,10 +1,9 @@
 {
-  "projectId": "gen-lang-client-0230233045",
-  "appId": "1:623379047138:web:95e470c48e747d7f1a34bb",
-  "apiKey": "AIzaSyCEdtOobCL2OvkwE_HDG8nvtdkyUJasyV8",
-  "authDomain": "gen-lang-client-0230233045.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-4b0e08d3-ca64-4191-9e96-f3162c3a33d7",
-  "storageBucket": "gen-lang-client-0230233045.firebasestorage.app",
-  "messagingSenderId": "623379047138",
+  "projectId": "neuroshift-d6712",
+  "appId": "1:40641011734:web:def35569f6c79162969537",
+  "apiKey": "AIzaSyA-4Zp-MbxQBTaWRKTc8J0IGyiVPDuUTRc",
+  "authDomain": "neuroshift-d6712.firebaseapp.com",
+  "storageBucket": "neuroshift-d6712.firebasestorage.app",
+  "messagingSenderId": "40641011734",
   "measurementId": ""
 }
