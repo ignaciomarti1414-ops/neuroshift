@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "session": {
+      "title": "Session",
+      "description": "A completed cognitive clutch intervention session.",
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "number",
+          "description": "Timestamp in milliseconds"
+        },
+        "entryVas": {
+          "type": "number"
+        },
+        "exitVas": {
+          "type": "number"
+        },
+        "entryBpm": {
+          "type": "number",
+          "description": "Can be null, but we track it as a number in db. Or null. We will just use number if present."
+        },
+        "exitBpm": {
+          "type": "number",
+          "description": "Can be null"
+        },
+        "ownerId": {
+          "type": "string"
+        }
+      },
+      "required": ["timestamp", "entryVas", "exitVas", "ownerId"]
+    }
+  },
+  "firestore": {
+    "users/{userId}/sessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/session"
+      },
+      "description": "Stores all the completed sessions for a specific user."
+    }
+  }
+}

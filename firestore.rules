@@ -1,0 +1,50 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { 
+      allow read, write: if false; 
+    }
+
+    function isSignedIn() { 
+      return request.auth != null; 
+    }
+
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+
+    function incoming() { 
+      return request.resource.data; 
+    }
+
+    function existing() { 
+      return resource.data; 
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['timestamp', 'entryVas', 'exitVas', 'ownerId']) &&
+             data.timestamp is number &&
+             data.entryVas is number &&
+             data.exitVas is number &&
+             data.ownerId == request.auth.uid &&
+             (data.get('entryBpm', 0) is number || data.get('entryBpm', null) == null) &&
+             (data.get('exitBpm', 0) is number || data.get('exitBpm', null) == null);
+    }
+
+    match /users/{userId}/sessions/{sessionId} {
+      allow list: if isSignedIn() && userId == request.auth.uid;
+      allow get: if isSignedIn() && userId == request.auth.uid && existing().ownerId == request.auth.uid;
+      
+      allow create: if isSignedIn() && 
+                    userId == request.auth.uid && 
+                    isValidId(userId) && 
+                    isValidId(sessionId) && 
+                    isValidSession(incoming()) && 
+                    incoming().ownerId == request.auth.uid;
+                    
+      allow update: if false; // Sessions are immutable
+      allow delete: if false; // Users shouldn't delete sessions (can add if needed)
+    }
+  }
+}
