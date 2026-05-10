@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNeuroStore } from '../store/useNeuroStore';
+import { useCeremonialSounds } from '../hooks/useCeremonialSounds';
 import { Settings2, Volume2, Headphones } from 'lucide-react';
 
 const DURATIONS = [25 * 60, 45 * 60, 90 * 60];
@@ -10,9 +11,11 @@ export const Phase6DeepWork = () => {
   const [isActive, setIsActive] = useState(false);
   const [focusBroken, setFocusBroken] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
-  
-  const { setAudioConfig, audioConfig, resetSession } = useNeuroStore();
+
+  const { setAudioConfig, audioConfig, resetSession, recordDeepWorkComplete } = useNeuroStore();
+  const { playDeepWorkStart, playDeepWorkEnd } = useCeremonialSounds();
   const timerRef = useRef<number>();
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -22,7 +25,7 @@ export const Phase6DeepWork = () => {
         setAudioConfig({ enabled: false });
       }
     };
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isActive, setAudioConfig]);
@@ -33,14 +36,18 @@ export const Phase6DeepWork = () => {
     } else if (timeLeft === 0 && isActive) {
       setIsActive(false);
       setAudioConfig({ enabled: false });
+      recordDeepWorkComplete(selectedDuration / 60);
     }
     return () => clearTimeout(timerRef.current);
-  }, [isActive, timeLeft, setAudioConfig]);
+  }, [isActive, timeLeft, setAudioConfig, selectedDuration, recordDeepWorkComplete]);
 
   const handleStart = () => {
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
     setIsActive(true);
     setAudioConfig({ enabled: true });
     setShowConfig(false);
+    playDeepWorkStart();
   };
 
   const handleResume = () => {
@@ -234,19 +241,19 @@ export const Phase6DeepWork = () => {
               <div className="w-10 h-10 bg-success rounded-full animate-pulse shadow-[0_0_20px_rgba(0,255,157,0.6)]" />
            </div>
            
-           <h2 className="text-success font-mono text-2xl uppercase tracking-[0.2em] mb-2 text-center shadow-success">
-              Inmersión Completada
-           </h2>
-           <p className="text-on-surface-variant font-mono text-xs uppercase tracking-widest mb-10">
-              Protocolo finalizado con éxito
-           </p>
+            <h2 className="text-success font-mono text-2xl uppercase tracking-[0.2em] mb-2 text-center shadow-success">
+               Inmersión Completada
+            </h2>
+            <p className="text-on-surface-variant font-mono text-xs uppercase tracking-widest mb-10">
+               Protocolo finalizado con éxito
+            </p>
 
-           <button 
-               onClick={resetSession}
-               className="w-full max-w-xs py-4 bg-success/10 border border-success/50 text-success text-[10px] font-mono uppercase tracking-[0.2em] rounded-xl hover:bg-success/20 transition-colors shadow-[0_0_20px_rgba(0,255,157,0.2)] active:scale-95"
-             >
-               Terminar Protocolo Final
-           </button>
+            <button
+                onClick={() => { playDeepWorkEnd(); resetSession(); }}
+                className="w-full max-w-xs py-4 bg-success/10 border border-success/50 text-success text-[10px] font-mono uppercase tracking-[0.2em] rounded-xl hover:bg-success/20 transition-colors shadow-[0_0_20px_rgba(0,255,157,0.2)] active:scale-95"
+              >
+                Terminar Protocolo Final
+            </button>
          </div>
       )}
       

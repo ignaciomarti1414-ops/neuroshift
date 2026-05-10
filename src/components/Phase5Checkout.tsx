@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { Loader2, Play, Pause } from 'lucide-react';
+import { Loader2, Play, Pause, TrendingDown, TrendingUp } from 'lucide-react';
 import { useNeuroStore } from '../store/useNeuroStore';
 import { saveSession } from '../lib/sessionService';
 
@@ -11,7 +11,8 @@ export const Phase5Checkout = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [failsafeActive, setFailsafeActive] = useState(false);
-  const { entryVas, currentNBackAccuracy, setMetrics, resetSession, nextPhase, history, setHistory } = useNeuroStore();
+  const [newAchievement, setNewAchievement] = useState<string | null>(null);
+  const { entryVas, currentNBackAccuracy, setMetrics, resetSession, nextPhase, history, setHistory, recordSessionComplete } = useNeuroStore();
   const dialRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,6 +38,8 @@ export const Phase5Checkout = () => {
     if (val === null) return;
     setMetrics('exit', val);
 
+    const delta = entryVas - val;
+
     setIsSaving(true);
     try {
       const sessionPayload = {
@@ -44,18 +47,20 @@ export const Phase5Checkout = () => {
         exitVas: val,
         nBackAccuracy: currentNBackAccuracy !== null ? currentNBackAccuracy : null,
       };
-      
+
       const res = await saveSession(sessionPayload);
-      
+
       if (res) {
-          setHistory([...history, res]);
+        setHistory([...history, res]);
       } else {
-          setHistory([...history, { 
-            id: crypto.randomUUID(), 
-            timestamp: Date.now(), 
-            ...sessionPayload 
-          }]);
+        setHistory([...history, {
+          id: crypto.randomUUID(),
+          timestamp: Date.now(),
+          ...sessionPayload
+        }]);
       }
+
+      recordSessionComplete(delta);
 
     } catch (err) {
       console.error('Failed to save session to DB:', err);
@@ -68,12 +73,11 @@ export const Phase5Checkout = () => {
 
   const handleSubmit = async () => {
     if (val !== null) {
-      // Check failsafe condition first
       if (entryVas - val <= 0 && !failsafeActive) {
         setFailsafeActive(true);
         return;
       }
-      
+
       await executeSave();
     }
   };
@@ -84,14 +88,14 @@ export const Phase5Checkout = () => {
   };
 
   const handleDeepWork = () => {
-    nextPhase(); // Go to phase 7 (Deep Work)
+    nextPhase();
   };
 
   const delta = (val !== null) ? entryVas - val : 0;
-  
-  // Transform data to simulate an upward "reset level" trend for the chart based on delta
+  const deltaPositive = delta >= 0;
+
   const resetLevel = Math.min(100, Math.max(0, (delta / entryVas) * 100)) || 50;
-  
+
   const chartData = [
     { name: '0m', fill: 20 },
     { name: '2m', fill: 40 },
@@ -111,22 +115,22 @@ export const Phase5Checkout = () => {
       <main className="flex-1 flex flex-col items-center justify-center p-6 w-full h-full animate-fade-in">
          <div className="glass-panel border-[#ff0055]/30 p-8 flex flex-col items-center max-w-md w-full relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-[#ff0055]"></div>
-            
+
             <h2 className="text-[#ff0055] font-mono text-lg uppercase tracking-widest mb-6 text-center">
               Alerta Clínica
             </h2>
-            
+
             <p className="text-on-surface text-sm mb-8 text-center leading-relaxed">
               Tu sistema nervioso simpático sigue hiperactivado. Intervención física requerida.
             </p>
-            
+
             <div className="bg-[#ff0055]/10 border border-[#ff0055]/20 rounded-lg p-6 mb-8 w-full">
                <p className="text-white text-center font-mono text-xs uppercase tracking-widest leading-relaxed">
                  Lávate la cara con agua muy fría (Reflejo Vagal) durante 30 segundos.
                </p>
             </div>
-            
-            <button 
+
+            <button
               onClick={executeSave}
               className="w-full py-4 rounded-xl border border-[rgba(255,255,255,0.1)] text-on-surface font-mono tracking-widest uppercase hover:bg-[rgba(255,255,255,0.05)] transition-colors active:scale-95"
             >
@@ -139,7 +143,7 @@ export const Phase5Checkout = () => {
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-2 md:p-6 overflow-hidden w-full h-full min-h-0">
-      
+
       {!submitted ? (
         <div className="flex flex-col items-center w-full max-w-md pt-2 h-full justify-between py-2 md:py-6">
           <div className="flex flex-col items-center w-full shrink-0">
@@ -155,21 +159,21 @@ export const Phase5Checkout = () => {
             <h2 className="text-on-surface-variant font-mono text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2 md:mb-4 shrink-0">
               Estado Neurocognitivo (VAS)
             </h2>
-            
-            <div 
+
+            <div
               className="relative w-full max-w-[200px] md:max-w-[240px] aspect-[1.3] flex flex-1 items-start justify-center cursor-pointer select-none"
               ref={dialRef}
               onPointerDown={handlePointerDown}
               style={{ touchAction: 'none' }}
             >
               <svg viewBox="0 0 280 280" className="absolute top-0 left-0 w-full h-[120%] -rotate-[210deg] pointer-events-none">
-                 <circle 
-                   cx="140" cy="140" r={radius} 
+                 <circle
+                   cx="140" cy="140" r={radius}
                    className="dial-track"
                    strokeDasharray={strokeDasharray}
                  />
-                 <circle 
-                   cx="140" cy="140" r={radius} 
+                 <circle
+                   cx="140" cy="140" r={radius}
                    className="dial-progress drop-shadow-[0_0_12px_rgba(0,255,157,0.8)]"
                    stroke="var(--color-success)"
                    strokeDasharray={strokeDasharray}
@@ -177,7 +181,7 @@ export const Phase5Checkout = () => {
                    style={{ transition: 'stroke-dashoffset 0.1s ease-out' }}
                  />
               </svg>
-              
+
               <div className="dial-container w-[55%] aspect-square rounded-full mt-[8%] flex flex-col items-center justify-center z-10 pointer-events-none relative shadow-xl">
                 <span className="text-[8px] md:text-[10px] text-success uppercase tracking-widest font-mono mb-0.5">POST-SESIÓN</span>
                 <div className="flex items-baseline">
@@ -187,14 +191,14 @@ export const Phase5Checkout = () => {
                 <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1),transparent_50%)]" />
               </div>
             </div>
-            
+
             <div className="w-full mt-2">
               <input
                 type="range"
                 min="0"
                 max="100"
                 step="1"
-                aria-label="Nivel de ansiedad"
+                aria-label="Nivel de ansiedad post-sesión"
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={val === null ? 50 : val}
@@ -210,8 +214,8 @@ export const Phase5Checkout = () => {
             onClick={handleSubmit}
             disabled={val === null || isSaving}
             className={`w-full py-3 md:py-4 rounded-full font-mono text-[10px] md:text-sm tracking-widest uppercase transition-all duration-300 flex justify-center items-center gap-2 shrink-0 ${
-              val !== null 
-                ? 'bg-success text-background hover:bg-opacity-90 shadow-[0_0_20px_rgba(0,255,157,0.4)]' 
+              val !== null
+                ? 'bg-success text-background hover:bg-opacity-90 shadow-[0_0_20px_rgba(0,255,157,0.4)]'
                 : 'bg-surface border border-border text-on-surface-variant cursor-not-allowed opacity-50'
             }`}
           >
@@ -221,17 +225,42 @@ export const Phase5Checkout = () => {
         </div>
       ) : (
         <div className="flex flex-col items-center w-full max-w-md animate-fade-in pb-8">
-          <div className="w-full flex items-center mb-6 px-2">
+          <div className="w-full flex items-center mb-4 px-2">
             <h2 className="text-lg md:text-xl font-light text-on-surface tracking-widest uppercase glow-text">
-              Resumen de Sesión y Datos
+              Resumen de Sesión
             </h2>
           </div>
 
-          <div className="glass-panel w-full p-6 mb-6">
-            <h3 className="text-xs text-on-surface-variant font-mono uppercase tracking-[0.2em] mb-4 text-center">
-              Puntuación de Reinicio Neurocognitivo
+          <div className="glass-panel w-full p-4 mb-4 border border-success/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${deltaPositive ? 'bg-success/20' : 'bg-[#ff0055]/20'}`}>
+                  {deltaPositive
+                    ? <TrendingDown className="w-5 h-5 text-success" />
+                    : <TrendingUp className="w-5 h-5 text-[#ff0055]" />
+                  }
+                </div>
+                <div>
+                  <span className="text-[10px] text-on-surface-variant uppercase tracking-widest block">Reducción de Estrés</span>
+                  <span className={`text-2xl font-light ${deltaPositive ? 'text-success' : 'text-[#ff0055]'}`}>
+                    {deltaPositive ? '-' : '+'}{Math.abs(delta).toFixed(0)} pts
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-on-surface-variant uppercase tracking-widest block">{entryVas} → {val}</span>
+                <span className={`text-xs font-mono ${deltaPositive ? 'text-success' : 'text-[#ff0055]'}`}>
+                  {deltaPositive ? 'Reset logrado' : 'Sin progreso'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-panel w-full p-4 mb-4">
+            <h3 className="text-[10px] text-on-surface-variant font-mono uppercase tracking-[0.2em] mb-3 text-center">
+              Curva de Recalibración
             </h3>
-            <div className="w-full h-[180px] relative">
+            <div className="w-full h-[140px] relative">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>
@@ -242,22 +271,22 @@ export const Phase5Checkout = () => {
                   </defs>
                   <XAxis dataKey="name" stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} />
                   <YAxis hide domain={[0, 100]} />
-                  <Tooltip 
-                    contentStyle={{backgroundColor: "rgba(15,25,40,0.9)", border: "1px solid rgba(0,240,255,0.2)", borderRadius: "12px", backdropFilter: "blur(10px)"}} 
+                  <Tooltip
+                    contentStyle={{backgroundColor: "rgba(15,25,40,0.9)", border: "1px solid rgba(0,240,255,0.2)", borderRadius: "12px", backdropFilter: "blur(10px)"}}
                     itemStyle={{color: "var(--color-primary)"}}
                   />
                   <Area type="step" dataKey="fill" stroke="var(--color-primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorScore)" />
                 </AreaChart>
               </ResponsiveContainer>
-              <div className="absolute right-0 top-1 text-primary text-xl font-mono glow-text pr-2">
+              <div className="absolute right-0 top-1 text-primary text-lg font-mono glow-text pr-2">
                 {resetLevel > 0 ? resetLevel.toFixed(0) : 94}%
               </div>
             </div>
           </div>
 
-          <h3 className="w-full text-left font-mono text-sm text-on-surface mb-4 uppercase tracking-widest pl-2">Biometría Post-Sesión</h3>
-          
-          <div className="grid grid-cols-2 gap-3 w-full mb-8">
+          <h3 className="w-full text-left font-mono text-xs text-on-surface mb-3 uppercase tracking-widest pl-2">Biometría</h3>
+
+          <div className="grid grid-cols-2 gap-3 w-full mb-6">
             <div className="glass-panel p-3 flex flex-col items-start justify-center text-left hover:-translate-y-1 transition-transform relative overflow-hidden">
                <div className="absolute inset-0 bg-primary/10"></div>
               <span className="text-[10px] text-on-surface-variant font-mono uppercase mb-2 z-10">Dopamina</span>
@@ -269,10 +298,10 @@ export const Phase5Checkout = () => {
             </div>
           </div>
 
-          <div className="glass-panel w-full p-4 flex items-center justify-between mb-8 cursor-pointer relative overflow-hidden group">
+          <div className="glass-panel w-full p-4 flex items-center justify-between mb-6 cursor-pointer relative overflow-hidden group">
              <div className="absolute left-0 top-0 bottom-0 w-1/3 bg-primary/10 transition-all group-hover:w-full duration-500"></div>
              <div className="flex items-center gap-4 z-10">
-               <button 
+               <button
                  onClick={() => setIsPlaying(!isPlaying)}
                  className="w-10 h-10 rounded-full bg-primary/20 border border-primary/50 flex flex-col items-center justify-center text-primary hover:bg-primary/40 transition-colors"
                >
@@ -283,7 +312,7 @@ export const Phase5Checkout = () => {
                  <span className="text-[10px] text-on-surface-variant">Guía Post-Sesión</span>
                </div>
              </div>
-             
+
              <div className="flex items-center gap-2 z-10">
                 <span className="text-[10px] font-mono text-on-surface-variant">04:15</span>
                 <div className="w-12 h-1 bg-surface-bright rounded-full relative">
@@ -294,13 +323,13 @@ export const Phase5Checkout = () => {
           </div>
 
           <div className="flex gap-4 w-full">
-            <button 
+            <button
                onClick={handleFinish}
                className="flex-1 py-4 rounded-xl border border-[rgba(255,255,255,0.1)] text-on-surface text-xs font-mono tracking-widest uppercase hover:bg-[rgba(255,255,255,0.05)] transition-colors active:scale-95"
             >
               Salir
             </button>
-            <button 
+            <button
                onClick={handleDeepWork}
                className="flex-[2] py-4 rounded-xl bg-primary text-background font-mono text-xs tracking-widest uppercase hover:bg-opacity-90 shadow-[0_0_20px_rgba(0,255,157,0.4)] transition-colors active:scale-95"
             >

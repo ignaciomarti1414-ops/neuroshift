@@ -28,8 +28,8 @@ export const Phase4BNBack = () => {
     const misses = missesRef.current;
     const falseAlarms = falseAlarmsRef.current;
     const total = hits + misses + falseAlarms;
-    const accuracy = total > 0 ? (hits / total) * 100 : 100; // if they got zero possible, 100%
-    
+    const accuracy = total > 0 ? (hits / total) * 100 : 0;
+
     evaluateCognitiveLoad(accuracy);
     nextPhase();
   }, [nextPhase, evaluateCognitiveLoad]);

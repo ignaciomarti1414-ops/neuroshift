@@ -1,48 +1,72 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'motion/react';
 import { useNeuroStore } from '../store/useNeuroStore';
+import { useCeremonialSounds } from '../hooks/useCeremonialSounds';
 import { X } from 'lucide-react';
 
 export const Phase2Friction = ({ onCancel }: { onCancel: () => void }) => {
   const nextPhase = useNeuroStore((state) => state.nextPhase);
+  const { playPhaseComplete } = useCeremonialSounds();
+  const HOLD_DURATION = 30000;
+  const [elapsed, setElapsed] = useState(0);
   const [isPressed, setIsPressed] = useState(false);
   const [interrupted, setInterrupted] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const controls = useAnimation();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const tickRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number>(0);
 
   const startInteraction = () => {
+    if (completed) return;
     setIsPressed(true);
     setInterrupted(false);
-    
-    // Animate the sphere shrinking linearly over 30 seconds
+    setElapsed(0);
+    startTimeRef.current = Date.now();
+
     controls.start({
       scale: 0.2,
       opacity: 0.8,
       boxShadow: "0 0 80px rgba(0,240,255,0.8), inset 0 0 60px rgba(0,240,255,0.6)",
-      transition: { duration: 30, ease: 'linear' }
+      transition: { duration: HOLD_DURATION / 1000, ease: 'linear' }
     });
 
+    tickRef.current = window.setInterval(() => {
+      const elapsedMs = Date.now() - startTimeRef.current;
+      const newElapsed = Math.min(elapsedMs, HOLD_DURATION);
+      setElapsed(newElapsed);
+    }, 100);
+
     timeoutRef.current = setTimeout(() => {
-      // 30 seconds completed
+      if (tickRef.current) clearInterval(tickRef.current);
+      setCompleted(true);
+      setIsPressed(false);
       controls.start({
         scale: 0,
         opacity: 0,
         transition: { duration: 0.5, ease: 'easeIn' }
       }).then(() => {
+        playPhaseComplete();
         nextPhase();
       });
-    }, 30000);
+    }, HOLD_DURATION);
   };
 
   const stopInteraction = () => {
-    if (!isPressed) return;
+    if (!isPressed || completed) return;
     setIsPressed(false);
-    
+
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    if (tickRef.current) {
+      clearInterval(tickRef.current);
+      tickRef.current = null;
+    }
 
+    const elapsedMs = Date.now() - startTimeRef.current;
+    setElapsed(elapsedMs);
     setInterrupted(true);
     controls.start({
       scale: 1,
@@ -55,8 +79,12 @@ export const Phase2Friction = ({ onCancel }: { onCancel: () => void }) => {
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (tickRef.current) clearInterval(tickRef.current);
     };
   }, []);
+
+  const progress = (elapsed / HOLD_DURATION) * 100;
+  const secondsLeft = Math.max(0, Math.ceil((HOLD_DURATION - elapsed) / 1000));
 
   return (
     <main className="flex-1 flex flex-col items-center justify-start py-4 md:py-8 w-full max-w-md mx-auto select-none overflow-hidden touch-none h-full relative">
@@ -93,13 +121,24 @@ export const Phase2Friction = ({ onCancel }: { onCancel: () => void }) => {
 
         <div className="min-h-[80px] flex items-center justify-center text-center px-4 mb-4 shrink-0">
           <p className={`font-mono text-[10px] sm:text-xs tracking-widest leading-relaxed transition-colors duration-300 ${interrupted ? 'text-[#ff0055] uppercase' : isPressed ? 'text-primary uppercase' : 'text-on-surface-variant uppercase'} `}>
-            {interrupted 
-              ? "Conexión interrumpida. Mantén presionado de nuevo." 
-              : isPressed 
-                ? "Mantén para comprimir el impulso..." 
+            {interrupted
+              ? "Conexión interrumpida. Mantén presionado de nuevo."
+              : isPressed
+                ? `Manteniendo... ${secondsLeft}s restantes`
                 : "Mantén presionada la esfera para empezar"}
           </p>
         </div>
+
+        {isPressed && (
+          <div className="w-full max-w-[240px] mx-auto mb-4 shrink-0">
+            <div className="w-full bg-surface-bright h-1.5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-100 shadow-[0_0_8px_rgba(0,180,255,0.6)]"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="w-full flex items-end justify-center max-w-md mx-auto z-10 shrink-0">

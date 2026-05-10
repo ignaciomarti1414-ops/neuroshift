@@ -1,19 +1,21 @@
-import { useEffect, useState, useCallback } from 'react';
-import { 
-  DndContext, 
-  PointerSensor, 
+import { useEffect, useState, useCallback, FC } from 'react';
+import {
+  DndContext,
+  PointerSensor,
   TouchSensor,
-  useSensor, 
-  useSensors, 
-  DragOverlay, 
-  useDraggable, 
+  useSensor,
+  useSensors,
+  DragOverlay,
+  useDraggable,
   useDroppable,
   pointerWithin,
-  DragStartEvent, 
-  DragEndEvent, 
+  DragStartEvent,
+  DragEndEvent,
   DragMoveEvent
 } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
+import { useNeuroStore } from '../store/useNeuroStore';
+import { useCeremonialSounds } from '../hooks/useCeremonialSounds';
 
 const GRID_SIZE = 6;
 
@@ -72,9 +74,7 @@ const DraggableShape = ({ instance, setDragAnchor }: { instance: ShapeInstance, 
   );
 };
 
-import React from 'react';
-
-const DroppableCell: React.FC<{ id: string, cellShape: string | null, isHovered: boolean, draggedShape: string | null }> = ({ id, cellShape, isHovered, draggedShape }) => {
+const DroppableCell: FC<{ id: string, cellShape: string | null, isHovered: boolean, draggedShape: string | null }> = ({ id, cellShape, isHovered, draggedShape }) => {
   const { setNodeRef } = useDroppable({
     id: id,
   });
@@ -82,7 +82,7 @@ const DroppableCell: React.FC<{ id: string, cellShape: string | null, isHovered:
   let bgClass = 'bg-[rgba(20,30,50,0.4)]';
   let borderClass = 'border-[rgba(255,255,255,0.05)]';
   let shadowClass = '';
-  
+
   if (cellShape !== null) {
     bgClass = SHAPES[cellShape].color;
     borderClass = 'border-[rgba(0,240,255,0.4)]';
@@ -93,14 +93,12 @@ const DroppableCell: React.FC<{ id: string, cellShape: string | null, isHovered:
   }
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
       className={`w-full h-full flex items-center justify-center rounded-md border ${bgClass} ${borderClass} ${shadowClass} transition-colors duration-200 aspect-square`}
     />
   );
 };
-
-import { useNeuroStore } from '../store/useNeuroStore';
 
 export const Phase4ATetris = () => {
   const [grid, setGrid] = useState<string[]>(Array(GRID_SIZE * GRID_SIZE).fill(null));
@@ -112,6 +110,7 @@ export const Phase4ATetris = () => {
   const [isGridLocked, setIsGridLocked] = useState(false);
 
   const nextPhase = useNeuroStore((state) => state.nextPhase);
+  const { playPhaseComplete } = useCeremonialSounds();
 
   const TARGET_LINES = 10;
 
@@ -140,9 +139,10 @@ export const Phase4ATetris = () => {
 
   useEffect(() => {
     if (clearedLines >= TARGET_LINES) {
+      playPhaseComplete();
       setTimeout(() => nextPhase(), 1000);
     }
-  }, [clearedLines, nextPhase]);
+  }, [clearedLines, nextPhase, playPhaseComplete]);
 
   const getPlacementIndices = useCallback((startIndex: number, shapeType: string, currentGrid: string[] = grid, anchor: [number, number] = dragAnchor): number[] | null => {
     const shapeInfo = SHAPES[shapeType];

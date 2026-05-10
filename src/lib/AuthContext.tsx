@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { User as FirebaseUser, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { getSessions } from './sessionService';
 import { useNeuroStore } from '../store/useNeuroStore';
 
 interface AuthContextType {
-  user: User | null;
+  user: FirebaseUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
@@ -19,26 +19,32 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const setHistory = useNeuroStore(state => state.setHistory);
 
   useEffect(() => {
+    let isMounted = true;
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!isMounted) return;
       setUser(user);
       if (user) {
         try {
           const sessions = await getSessions();
-          setHistory(sessions);
+          if (isMounted) setHistory(sessions);
         } catch (error) {
           console.error("Failed to fetch sessions: ", error);
+          if (isMounted) setHistory([]);
         }
       } else {
-        setHistory([]);
+        if (isMounted) setHistory([]);
       }
-      setLoading(false);
+      if (isMounted) setLoading(false);
     });
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [setHistory]);
 
   const signInWithGoogle = async () => {
@@ -48,6 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error('Error signing in with Google', error);
+    } finally {
       setLoading(false);
     }
   };

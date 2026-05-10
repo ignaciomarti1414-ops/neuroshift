@@ -12,21 +12,27 @@ import { Login } from './components/Login';
 import { useAuth } from './lib/AuthContext';
 import { useAudioEngine } from './lib/useAudioEngine';
 import { useNeuroStore } from './store/useNeuroStore';
+import { useCeremonialSounds } from './hooks/useCeremonialSounds';
 import { Activity } from 'lucide-react';
 
 export default function App() {
   const { user, loading } = useAuth();
-  const { 
+  const {
     hasSeenOnboarding,
-    phase, 
-    entryVas, 
+    phase,
+    entryVas,
     audioConfig,
     history,
     resetSession,
     setAudioConfig
   } = useNeuroStore();
-  
-  const { isInitialized, initAudio, stopAudio, setFrequencySweep, setVolume, setNoiseType } = useAudioEngine();
+
+  const { isInitialized, initAudio, stopAudio, setFrequencySweep, setNoiseType } = useAudioEngine();
+  const { setAudioEnabled } = useCeremonialSounds();
+
+  useEffect(() => {
+    setAudioEnabled(audioConfig.enabled);
+  }, [audioConfig.enabled, setAudioEnabled]);
 
   // Audio Control
   useEffect(() => {
@@ -68,8 +74,11 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-[100dvh] items-center justify-center p-4">
+      <div className="flex flex-col min-h-[100dvh] items-center justify-center p-4 gap-4">
         <Activity className="w-12 h-12 text-primary animate-pulse" />
+        <span className="text-sm font-mono text-on-surface-variant uppercase tracking-widest animate-pulse">
+          Cargando tu sesión...
+        </span>
       </div>
     );
   }
@@ -96,7 +105,7 @@ export default function App() {
         <section className={`col-span-1 h-full min-h-0 ${phase !== 1 ? 'md:col-span-8' : 'md:col-span-12'} glass flex flex-col overflow-hidden relative`}>
           {phase === 1 && <Phase1Entry />}
           {phase === 2 && <Phase2Friction onCancel={handleReset} />}
-          {phase === 3 && <Phase3Coherence duration={recommendedDuration} />}
+          {phase === 3 && <Phase3Coherence />}
           {phase === 4 && <Phase4ATetris />}
           {phase === 5 && <Phase4BNBack />}
           {phase === 6 && <Phase5Checkout />}
@@ -157,8 +166,10 @@ export default function App() {
                     <p className="text-[10px] text-on-surface-variant font-mono">Binaural + Ruido</p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={toggleAudio}
+                  aria-pressed={audioConfig.enabled}
+                  aria-label={`Motor Neural ${audioConfig.enabled ? 'activo' : 'desactivado'}`}
                   className={`px-3 py-1.5 rounded-lg text-[10px] font-mono transition-colors ${audioConfig.enabled ? 'bg-primary text-background shadow-[0_0_15px_rgba(0,180,255,0.4)]' : 'bg-surface-dim text-on-surface hover:bg-surface-bright'}`}
                 >
                   {audioConfig.enabled ? 'ACTIVO' : 'OFF'}

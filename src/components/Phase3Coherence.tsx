@@ -1,39 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNeuroStore } from '../store/useNeuroStore';
 
-export const Phase3Coherence = ({ duration = 180 }: { duration?: number }) => {
+export const Phase3Coherence = () => {
+  const coherenceDuration = useNeuroStore((state) => state.coherenceDuration);
   const [phase, setPhase] = useState<'inhale' | 'hold1' | 'exhale' | 'hold2'>('inhale');
-  const [timeLeft, setTimeLeft] = useState(duration);
+  const [timeLeft, setTimeLeft] = useState(coherenceDuration);
   const nextPhase = useNeuroStore((state) => state.nextPhase);
 
+  const startTimeRef = useRef<number>(Date.now());
+  const endTimeRef = useRef<number>(Date.now() + coherenceDuration * 1000);
+  const cycleTimerRef = useRef<number>(0);
+  const countdownTimerRef = useRef<number>(0);
+  const pausedTimeRef = useRef<number>(0);
+  const isPausedRef = useRef(false);
+
+  const CYCLE_DURATION = 16000;
+  const PHASE_DURATION = 4000;
+
   useEffect(() => {
-    // 4s inhale, 4s hold, 4s exhale, 4s hold (Box breathing)
-    const cycle = () => {
-      setPhase('inhale');
-      setTimeout(() => setPhase('hold1'), 4000);
-      setTimeout(() => setPhase('exhale'), 8000);
-      setTimeout(() => setPhase('hold2'), 12000);
+    const phases: Array<'inhale' | 'hold1' | 'exhale' | 'hold2'> = ['inhale', 'hold1', 'exhale', 'hold2'];
+
+    const runCycle = () => {
+      if (isPausedRef.current) return;
+      const elapsed = (Date.now() - startTimeRef.current) % CYCLE_DURATION;
+      const newPhaseIndex = Math.floor(elapsed / PHASE_DURATION) % 4;
+      setPhase(phases[newPhaseIndex]);
     };
 
-    cycle();
-    const cycleInterval = setInterval(cycle, 16000); // 16s total cycle
-    
-    const timeInterval = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) {
-          clearInterval(cycleInterval);
-          clearInterval(timeInterval);
-          nextPhase();
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
+    const updateTimer = () => {
+      if (isPausedRef.current) return;
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(cycleTimerRef.current);
+        clearInterval(countdownTimerRef.current);
+        nextPhase();
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        isPausedRef.current = true;
+        pausedTimeRef.current = Date.now();
+      } else if (isPausedRef.current) {
+        const pauseDuration = Date.now() - pausedTimeRef.current;
+        startTimeRef.current += pauseDuration;
+        endTimeRef.current += pauseDuration;
+        isPausedRef.current = false;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    cycleTimerRef.current = window.setInterval(runCycle, 250);
+    countdownTimerRef.current = window.setInterval(updateTimer, 250);
+    runCycle();
+    updateTimer();
 
     return () => {
-      clearInterval(cycleInterval);
-      clearInterval(timeInterval);
+      clearInterval(cycleTimerRef.current);
+      clearInterval(countdownTimerRef.current);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [nextPhase]);
 
@@ -136,7 +165,7 @@ export const Phase3Coherence = ({ duration = 180 }: { duration?: number }) => {
               </div>
             </div>
             
-            <div className="absolute bottom-8 text-xl font-mono text-white text-center w-full flex flex-col items-center">
+            <div className="absolute bottom-8 text-xl font-mono text-white text-center w-full flex flex-col items-center" aria-live="polite" aria-atomic="true">
                 <span>{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span>
                 <span className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">Restante</span>
             </div>
